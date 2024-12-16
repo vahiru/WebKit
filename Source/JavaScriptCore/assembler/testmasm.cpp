@@ -244,6 +244,14 @@ bool NODELETE isSpecialGPR(MacroAssembler::RegisterID id)
 #elif CPU(RISCV64)
     if (id == RISCV64Registers::zero || id == RISCV64Registers::ra || id == RISCV64Registers::gp || id == RISCV64Registers::tp)
         return true;
+#elif CPU(LOONGARCH64)
+    if (id == LOONGARCH64Registers::zero ||
+        id == LOONGARCH64Registers::ra   ||
+        id == LOONGARCH64Registers::rx   ||
+        id == LOONGARCH64Registers::gp   ||
+        id == LOONGARCH64Registers::tp) {
+        return true;
+    }
 #endif
     return false;
 }
@@ -279,6 +287,23 @@ T invoke(const MacroAssemblerCodeRef<JSEntryPtrTag>& code, Arguments... argument
     }
 #endif
 
+#if CPU(LOONGARCH64)
+    // LOONGARCH64 calling convention requires all 32-bit values to be sign-extended into the whole register.
+    // JSC JIT is tailored for other ISAs that pass these values in 32-bit-wide registers, which LOONGARCH
+    // doesn't support, so any 32-bit value passed in return-value registers has to be manually sign-extended.
+    // This mirrors sign-extension of 32-bit values in argument registers on LOONGARCH64 in CCallHelpers.h.
+    if constexpr (std::is_integral_v<T>) {
+        T returnValue = function(arguments...);
+        if constexpr (sizeof(T) == 4) {
+            asm volatile(
+                "addi.d %[out_value], %[in_value], 0\n\t"
+                : [out_value] "=r" (returnValue)
+                : [in_value] "r" (returnValue));
+        }
+        return returnValue;
+    }
+#endif
+
     return function(arguments...);
 }
 
@@ -297,6 +322,25 @@ void emitFunctionEpilogue(CCallHelpers& jit)
 {
     jit.emitFunctionEpilogue();
 }
+
+#if CPU(LOONGARCH64)
+void testLoongArch64()
+{
+    auto test1 = compile([] (CCallHelpers& jit) {
+        emitFunctionPrologue(jit);
+        jit.testAssembler();
+        emitFunctionEpilogue(jit);
+        jit.ret();
+    });
+
+    CHECK_EQ(compileAndRun<int>([] (CCallHelpers& jit) {
+        emitFunctionPrologue(jit);
+        jit.move(CCallHelpers::TrustedImm32(0x3a5000), GPRInfo::returnValueGPR);
+        emitFunctionEpilogue(jit);
+        jit.ret();
+    }), 0x3a5000);
+}
+#endif
 
 void testSimple()
 {
@@ -3117,7 +3161,7 @@ void testZeroExtend48ToWord()
 }
 #endif
 
-#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64)
+#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64) || CPU(LOONGARCH64)
 void testCompareFloat(MacroAssembler::DoubleCondition condition)
 {
     float arg1 = 0;
@@ -3158,9 +3202,9 @@ void testCompareFloat(MacroAssembler::DoubleCondition condition)
         }
     }
 }
-#endif // CPU(X86_64) || CPU(ARM64)
+#endif // CPU(X86_64) || CPU(ARM64) || CPU(LOONGARCH64)
 
-#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64)
+#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64) || CPU(LOONGARCH64)
 
 template<typename T, typename SelectionType>
 void testMoveConditionallyFloatingPoint(MacroAssembler::DoubleCondition condition, const MacroAssemblerCodeRef<JSEntryPtrTag>& testCode, T& arg1, T& arg2, const Vector<T> operands, SelectionType selectionA, SelectionType selectionB)
@@ -3983,7 +4027,7 @@ void testSignExtend16To64()
     }
 }
 
-#endif // CPU(X86_64) || CPU(ARM64) || CPU(RISCV64)
+#endif // CPU(X86_64) || CPU(ARM64) || CPU(RISCV64) || CPU(LOONGARCH64)
 
 #if CPU(ARM64)
 
@@ -5448,7 +5492,7 @@ void testProbeModifiesStackPointer(WTF::Function<void*(Probe::Context&)> compute
     CPUState originalState;
     void* originalSP { nullptr };
     void* modifiedSP { nullptr };
-#if !CPU(RISCV64)
+#if !(CPU(RISCV64) || CPU(LOONGARCH64))
     uintptr_t modifiedFlags { 0 };
 #endif
     
@@ -5479,7 +5523,7 @@ void testProbeModifiesStackPointer(WTF::Function<void*(Probe::Context&)> compute
                 cpu.fpr(id) = std::bit_cast<double>(testWord64(id));
             }
 
-#if !(CPU(RISCV64))
+#if !(CPU(RISCV64) || CPU(LOONGARCH64))
             originalState.spr(flagsSPR) = cpu.spr(flagsSPR);
             modifiedFlags = originalState.spr(flagsSPR) ^ flagsMask;
             cpu.spr(flagsSPR) = modifiedFlags;
@@ -5505,7 +5549,7 @@ void testProbeModifiesStackPointer(WTF::Function<void*(Probe::Context&)> compute
             }
             for (auto id = CCallHelpers::firstFPRegister(); id <= CCallHelpers::lastFPRegister(); id = nextID(id))
                 CHECK_EQ(cpu.fpr<uint64_t>(id), testWord64(id));
-#if !CPU(RISCV64)
+#if !(CPU(RISCV64) || CPU(LOONGARCH64))
             CHECK_EQ(cpu.spr(flagsSPR) & flagsMask, modifiedFlags & flagsMask);
 #endif
             CHECK_EQ(cpu.sp(), modifiedSP);
@@ -5522,7 +5566,7 @@ void testProbeModifiesStackPointer(WTF::Function<void*(Probe::Context&)> compute
             }
             for (auto id = CCallHelpers::firstFPRegister(); id <= CCallHelpers::lastFPRegister(); id = nextID(id))
                 cpu.fpr(id) = originalState.fpr(id);
-#if !CPU(RISCV64)
+#if !(CPU(RISCV64) || CPU(LOONGARCH64))
             cpu.spr(flagsSPR) = originalState.spr(flagsSPR);
 #endif
             cpu.sp() = originalSP;
@@ -5539,7 +5583,7 @@ void testProbeModifiesStackPointer(WTF::Function<void*(Probe::Context&)> compute
             }
             for (auto id = CCallHelpers::firstFPRegister(); id <= CCallHelpers::lastFPRegister(); id = nextID(id))
                 CHECK_EQ(cpu.fpr<uint64_t>(id), originalState.fpr<uint64_t>(id));
-#if !CPU(RISCV64)
+#if !(CPU(RISCV64) || CPU(LOONGARCH64))
             CHECK_EQ(cpu.spr(flagsSPR) & flagsMask, originalState.spr(flagsSPR) & flagsMask);
 #endif
             CHECK_EQ(cpu.sp(), originalSP);
@@ -5620,7 +5664,7 @@ void testProbeModifiesStackValues()
     CPUState originalState;
     void* originalSP { nullptr };
     void* newSP { nullptr };
-#if !CPU(RISCV64)
+#if !(CPU(RISCV64) || CPU(LOONGARCH64))
     uintptr_t modifiedFlags { 0 };
 #endif
     size_t numberOfExtraEntriesToWrite { 10 }; // ARM64 requires that this be 2 word aligned.
@@ -5653,7 +5697,7 @@ void testProbeModifiesStackValues()
                 originalState.fpr(id) = cpu.fpr(id);
                 cpu.fpr(id) = std::bit_cast<double>(testWord64(id));
             }
-#if !CPU(RISCV64)
+#if !(CPU(RISCV64) || CPU(LOONGARCH64))
             originalState.spr(flagsSPR) = cpu.spr(flagsSPR);
             modifiedFlags = originalState.spr(flagsSPR) ^ flagsMask;
             cpu.spr(flagsSPR) = modifiedFlags;
@@ -5690,7 +5734,7 @@ void testProbeModifiesStackValues()
             }
             for (auto id = CCallHelpers::firstFPRegister(); id <= CCallHelpers::lastFPRegister(); id = nextID(id))
                 CHECK_EQ(cpu.fpr<uint64_t>(id), testWord64(id));
-#if !CPU(RISCV64)
+#if !(CPU(RISCV64) || CPU(LOONGARCH64))
             CHECK_EQ(cpu.spr(flagsSPR) & flagsMask, modifiedFlags & flagsMask);
 #endif
             CHECK_EQ(cpu.sp(), newSP);
@@ -5714,7 +5758,7 @@ void testProbeModifiesStackValues()
             }
             for (auto id = CCallHelpers::firstFPRegister(); id <= CCallHelpers::lastFPRegister(); id = nextID(id))
                 cpu.fpr(id) = originalState.fpr(id);
-#if !CPU(RISCV64)
+#if !(CPU(RISCV64) || CPU(LOONGARCH64))
             cpu.spr(flagsSPR) = originalState.spr(flagsSPR);
 #endif
             cpu.sp() = originalSP;
@@ -6213,7 +6257,7 @@ void testMoveConditionallyTest32WithImmThenCaseImmMask(MacroAssembler::ResultCon
 
 void testLoadBaseIndex()
 {
-#if CPU(ARM64) || CPU(X86_64) || CPU(RISCV64)
+#if CPU(ARM64) || CPU(X86_64) || CPU(RISCV64) || CPU(LOONGARCH64)
     // load64
     {
         auto test = compile([=](CCallHelpers& jit) {
@@ -6507,7 +6551,7 @@ void testStoreImmediateAddress()
 
 void testStoreBaseIndex()
 {
-#if CPU(ARM64) || CPU(X86_64) || CPU(RISCV64)
+#if CPU(ARM64) || CPU(X86_64) || CPU(RISCV64) || CPU(LOONGARCH64)
     // store64
     {
         auto test = compile([=](CCallHelpers& jit) {
@@ -8346,6 +8390,9 @@ void run(const char* filter) WTF_IGNORES_THREAD_SAFETY_ANALYSIS
         return !filter || WTF::findIgnoringASCIICaseWithoutLength(testName, filter) != WTF::notFound;
     };
 
+#if CPU(LOONGARCH64)
+    RUN(testLoongArch64());
+#endif
     RUN(testSimple());
     RUN(testGetEffectiveAddress(0xff00, 42, 8, CCallHelpers::TimesEight));
     RUN(testGetEffectiveAddress(0xff00, -200, -300, CCallHelpers::TimesEight));
@@ -8553,11 +8600,11 @@ void run(const char* filter) WTF_IGNORES_THREAD_SAFETY_ANALYSIS
     }
 #endif
 
-#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64)
+#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64) || CPU(LOONGARCH64)
     FOR_EACH_DOUBLE_CONDITION_RUN(testCompareFloat);
 #endif
 
-#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64)
+#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64) || CPU(LOONGARCH64)
     // Comparing 2 different registers.
     FOR_EACH_DOUBLE_CONDITION_RUN(testMoveConditionallyDouble2);
     FOR_EACH_DOUBLE_CONDITION_RUN(testMoveConditionallyDouble3);

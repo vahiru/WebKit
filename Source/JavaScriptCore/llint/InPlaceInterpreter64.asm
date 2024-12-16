@@ -30,7 +30,7 @@ macro saveIPIntRegisters()
     subp IPIntCalleeSaveSpaceStackAligned, sp
     if ARM64 or ARM64E
         storepairq MC, PC, -2 * SlotSize[cfr]
-    elsif X86_64 or RISCV64
+    elsif X86_64 or RISCV64 or LOONGARCH64
         storep PC, -1 * SlotSize[cfr]
         storep MC, -2 * SlotSize[cfr]
     end
@@ -42,7 +42,7 @@ macro restoreIPIntRegisters()
     # to be observable within the same Wasm module.
     if ARM64 or ARM64E
         loadpairq -2 * SlotSize[cfr], MC, PC
-    elsif X86_64 or RISCV64
+    elsif X86_64 or RISCV64 or LOONGARCH64
         loadp -1 * SlotSize[cfr], PC
         loadp -2 * SlotSize[cfr], MC
     end
@@ -1777,7 +1777,7 @@ ipintOp(_i32_div_s, macro()
         # https://bugs.webkit.org/show_bug.cgi?id=203692
         cdqi
         idivi t1
-    elsif ARM64 or ARM64E or RISCV64
+    elsif ARM64 or ARM64E or RISCV64 or LOONGARCH64
         divis t1, t0
     else
         error
@@ -1796,7 +1796,7 @@ ipintOp(_i32_div_u, macro()
     if X86_64
         xori t2, t2
         udivi t1
-    elsif ARM64 or ARM64E or RISCV64
+    elsif ARM64 or ARM64E or RISCV64 or LOONGARCH64
         divi t1, t0
     else
         error
@@ -1831,6 +1831,8 @@ ipintOp(_i32_rem_s, macro()
         subi t0, t2, t2
     elsif RISCV64
         remis t0, t1, t2
+    elsif LOONGARCH64
+        remis t0, t1, t2
     else
         error
     end
@@ -1855,6 +1857,8 @@ ipintOp(_i32_rem_u, macro()
         muli t1, t2
         subi t0, t2, t2
     elsif RISCV64
+        remi t0, t1, t2
+    elsif LOONGARCH64
         remi t0, t1, t2
     else
         error
@@ -2034,7 +2038,7 @@ ipintOp(_i64_div_s, macro()
         # https://bugs.webkit.org/show_bug.cgi?id=203692
         cqoq
         idivq t1
-    elsif ARM64 or ARM64E or RISCV64
+    elsif ARM64 or ARM64E or RISCV64 or LOONGARCH64
         divqs t1, t0
     else
         error
@@ -2053,7 +2057,7 @@ ipintOp(_i64_div_u, macro()
     if X86_64
         xorq t2, t2
         udivq t1
-    elsif ARM64 or ARM64E or RISCV64
+    elsif ARM64 or ARM64E or RISCV64 or LOONGARCH64
         divq t1, t0
     else
         error
@@ -2088,6 +2092,8 @@ ipintOp(_i64_rem_s, macro()
         subq t0, t2, t2
     elsif RISCV64
         remqs t0, t1, t2
+    elsif LOONGARCH64
+        remqs t0, t1, t2
     else
         error
     end
@@ -2112,6 +2118,8 @@ ipintOp(_i64_rem_u, macro()
         mulq t1, t2
         subq t0, t2, t2
     elsif RISCV64
+        remq t0, t1, t2
+    elsif LOONGARCH64
         remq t0, t1, t2
     else
         error

@@ -729,6 +729,15 @@
 #define ENABLE_WEBASSEMBLY_BBQJIT 0
 #endif
 
+#if CPU(LOONGARCH64) && ENABLE(JIT)
+#undef ENABLE_WEBASSEMBLY
+#define ENABLE_WEBASSEMBLY 1
+#undef ENABLE_WEBASSEMBLY_OMGJIT
+#define ENABLE_WEBASSEMBLY_OMGJIT 0
+#undef ENABLE_WEBASSEMBLY_BBQJIT
+#define ENABLE_WEBASSEMBLY_BBQJIT 0
+#endif
+
 #if !defined(ENABLE_C_LOOP)
 #if ENABLE(JIT) || CPU(X86_64) || CPU(ARM64)
 #define ENABLE_C_LOOP 0
@@ -803,7 +812,11 @@
 #define ENABLE_RISCV64_DISASSEMBLER 1
 #endif
 
-#if !defined(ENABLE_DISASSEMBLER) && (ENABLE(ZYDIS) || ENABLE(ARM64_DISASSEMBLER) || ENABLE(RISCV64_DISASSEMBLER) || (ENABLE(JIT) && USE(CAPSTONE)))
+#if !defined(ENABLE_LOONGARCH64_DISASSEMBLER) && ENABLE(JIT) && CPU(LOONGARCH64) && !USE(CAPSTONE)
+#define ENABLE_LOONGARCH64_DISASSEMBLER 1
+#endif
+
+#if !defined(ENABLE_DISASSEMBLER) && (ENABLE(ZYDIS) || ENABLE(ARM64_DISASSEMBLER) || ENABLE(RISCV64_DISASSEMBLER) || ENABLE(LOONGARCH64_DISASSEMBLER) || (ENABLE(JIT) && USE(CAPSTONE)))
 #define ENABLE_DISASSEMBLER 1
 #endif
 
@@ -901,8 +914,9 @@
 #endif
 
 /* Enable verification that that register allocations are not made within generated control flow.
-   Turned on for debug builds. */
-#if !defined(ENABLE_DFG_REGISTER_ALLOCATION_VALIDATION) && ENABLE(DFG_JIT) && !defined(NDEBUG)
+   Turned on for debug builds.
+   FIXME: https://bugs.webkit.org/show_bug.cgi?id=268727 */
+#if !defined(ENABLE_DFG_REGISTER_ALLOCATION_VALIDATION) && ENABLE(DFG_JIT) && !defined(NDEBUG) && !CPU(LOONGARCH64)
 #define ENABLE_DFG_REGISTER_ALLOCATION_VALIDATION 1
 #endif
 
@@ -971,7 +985,7 @@
 #define ENABLE_EXCEPTION_SCOPE_VERIFICATION (ASSERT_ENABLED || ASAN_ENABLED)
 #endif
 
-#if ENABLE(DFG_JIT) && HAVE(MACHINE_CONTEXT) && (CPU(X86_64) || CPU(ARM64) || CPU(RISCV64))
+#if ENABLE(DFG_JIT) && HAVE(MACHINE_CONTEXT) && (CPU(X86_64) || CPU(ARM64) || CPU(RISCV64) || CPU(LOONGARCH64))
 #define ENABLE_SIGNAL_BASED_VM_TRAPS 1
 #endif
 
@@ -1051,7 +1065,7 @@
    that executes each opcode. It cannot be supported by the CLoop since there's no way to embed the
    OpcodeID word in the CLoop's switch statement cases. It is also currently not implemented for MSVC.
 */
-#if !defined(ENABLE_LLINT_EMBEDDED_OPCODE_ID) && !ENABLE(C_LOOP) && (CPU(X86) || CPU(X86_64) || CPU(ARM64) || CPU(RISCV64))
+#if !defined(ENABLE_LLINT_EMBEDDED_OPCODE_ID) && !ENABLE(C_LOOP) && (CPU(X86) || CPU(X86_64) || CPU(ARM64) || CPU(RISCV64) || CPU(LOONGARCH64))
 #define ENABLE_LLINT_EMBEDDED_OPCODE_ID 1
 #endif
 

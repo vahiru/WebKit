@@ -272,7 +272,7 @@ public:
 
     void emitSaveThenMaterializeTagRegisters()
     {
-#if CPU(ARM64) || CPU(RISCV64)
+#if CPU(ARM64) || CPU(RISCV64) || CPU(LOONGARCH64)
         pushPair(GPRInfo::numberTagRegister, GPRInfo::notCellMaskRegister);
 #else
         push(GPRInfo::numberTagRegister);
@@ -283,7 +283,7 @@ public:
 
     void emitRestoreSavedTagRegisters()
     {
-#if CPU(ARM64) || CPU(RISCV64)
+#if CPU(ARM64) || CPU(RISCV64) || CPU(LOONGARCH64)
         popPair(GPRInfo::numberTagRegister, GPRInfo::notCellMaskRegister);
 #else
         pop(GPRInfo::notCellMaskRegister);
@@ -445,6 +445,40 @@ public:
 #endif
 
 #if CPU(RISCV64)
+    void emitFunctionPrologue()
+    {
+        pushPair(framePointerRegister, linkRegister);
+        move(stackPointerRegister, framePointerRegister);
+    }
+
+    void emitFunctionEpilogueWithEmptyFrame()
+    {
+        popPair(framePointerRegister, linkRegister);
+    }
+
+    void emitFunctionEpilogue()
+    {
+        move(framePointerRegister, stackPointerRegister);
+        emitFunctionEpilogueWithEmptyFrame();
+    }
+
+    ALWAYS_INLINE void preserveReturnAddressAfterCall(RegisterID reg)
+    {
+        move(linkRegister, reg);
+    }
+
+    ALWAYS_INLINE void restoreReturnAddressBeforeReturn(RegisterID reg)
+    {
+        move(reg, linkRegister);
+    }
+
+    ALWAYS_INLINE void restoreReturnAddressBeforeReturn(Address address)
+    {
+        loadPtr(address, linkRegister);
+    }
+#endif
+
+#if CPU(LOONGARCH64)
     void emitFunctionPrologue()
     {
         pushPair(framePointerRegister, linkRegister);
@@ -1044,6 +1078,15 @@ public:
             GPRInfo::regT10,
             GPRInfo::regT11,
             GPRInfo::regT12,
+#elif CPU(LOONGARCH64)
+            GPRInfo::regT6,
+            GPRInfo::regT7,
+            GPRInfo::regT8,
+            GPRInfo::regT9,
+            GPRInfo::regT10,
+            GPRInfo::regT11,
+            GPRInfo::regT12,
+            GPRInfo::regT13,
 #endif
         };
 
@@ -1766,7 +1809,7 @@ public:
     }
 
 #if ENABLE(WEBASSEMBLY)
-#if CPU(ARM64) || CPU(X86_64) || CPU(RISCV64)
+#if CPU(ARM64) || CPU(X86_64) || CPU(RISCV64) || CPU(LOONGARCH64)
     JumpList checkWasmStackOverflow(GPRReg instanceGPR, TrustedImm32, GPRReg framePointerGPR);
 #endif
 #endif

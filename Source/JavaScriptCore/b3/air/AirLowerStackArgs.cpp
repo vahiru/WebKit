@@ -89,7 +89,7 @@ void lowerStackArgs(Code& code)
                 if (inst.kind.opcode == Patch)
                     return Arg::extendedOffsetAddr(offsetFromFP);
 
-#if CPU(ARM64) || CPU(RISCV64)
+#if CPU(ARM64) || CPU(RISCV64) || CPU(LOONGARCH64)
                 RELEASE_ASSERT(!extendedOffsetAddrRegInUse);
                 Air::Tmp tmp = Air::Tmp(extendedOffsetAddrRegister());
                 extendedOffsetAddrRegInUse = true;
@@ -212,7 +212,7 @@ void lowerStackArgs(Code& code)
                             RELEASE_ASSERT(slot->byteSize() == 8);
                             RELEASE_ASSERT(width == Width32);
 
-#if CPU(ARM64) || CPU(RISCV64)
+#if CPU(ARM64) || CPU(RISCV64) || CPU(LOONGARCH64)
                             Air::Opcode storeOpcode = Move32;
                             Air::Arg::Kind operandKind = Arg::ZeroReg;
                             Air::Arg operand = Arg::zeroReg();

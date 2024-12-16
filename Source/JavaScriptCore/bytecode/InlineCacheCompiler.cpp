@@ -1390,6 +1390,9 @@ void InlineCacheCompiler::emitDataICPrepareForCall(CCallHelpers& jit)
 #elif CPU(RISCV64)
     static_assert(!maxFrameExtentForSlowPathCall);
     jit.pushPair(CCallHelpers::framePointerRegister, CCallHelpers::linkRegister);
+#elif CPU(LOONGARCH64)
+    static_assert(!maxFrameExtentForSlowPathCall);
+    jit.pushPair(CCallHelpers::framePointerRegister, CCallHelpers::linkRegister);
 #endif
 }
 

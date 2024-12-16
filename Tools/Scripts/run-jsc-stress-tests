@@ -544,6 +544,8 @@ def determineArchitectureFromELFBinary
         "arm64"
     when [0xF3, 0]
         "riscv64"
+    when "\x102\0"
+        "loongarch64"
     else
         $stderr.puts "Warning: unable to determine architecture from code: #{code.inspect}"
         nil
@@ -617,7 +619,7 @@ end
 
 $hostOS = determineOS unless $hostOS
 $architecture = determineArchitecture unless $architecture
-$isFTLPlatform = !($architecture == "x86" || $architecture == "mips" || $architecture == "riscv64" || $hostOS == "playstation" || $architecture == "arm")
+$isFTLPlatform = !($architecture == "x86" || $architecture == "mips" || $architecture == "riscv64" || $architecture == "loongarch64" || $hostOS == "playstation" || $architecture == "arm")
 # Special case windows, we want to run the wasm tests temporarily without B3/Air support
 $isWasmPlatform = (not $cloop) && $jitTests && ($isFTLPlatform || ($hostOS == "windows" && $architecture == "x86_64"))
 $isOMGPlatform = $isFTLPlatform

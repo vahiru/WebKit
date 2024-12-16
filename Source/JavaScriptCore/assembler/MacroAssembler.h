@@ -50,6 +50,11 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #define TARGET_MACROASSEMBLER MacroAssemblerRISCV64
 #include "MacroAssemblerRISCV64.h"
 
+#elif CPU(LOONGARCH64)
+#define TARGET_ASSEMBLER LOONGARCH64Assembler
+#define TARGET_MACROASSEMBLER MacroAssemblerLOONGARCH64
+#include "MacroAssemblerLOONGARCH64.h"
+
 #else
 #error "The MacroAssembler is not supported on this platform."
 #endif
@@ -133,7 +138,7 @@ public:
     using MacroAssemblerBase::and32;
     using MacroAssemblerBase::branchAdd32;
     using MacroAssemblerBase::branchMul32;
-#if CPU(ARM64) || CPU(X86_64) || CPU(RISCV64)
+#if CPU(ARM64) || CPU(X86_64) || CPU(RISCV64) || CPU(LOONGARCH64)
     using MacroAssemblerBase::branchPtr;
 #endif
 #if CPU(X86_64)
@@ -151,10 +156,10 @@ public:
     using MacroAssemblerBase::urshift32;
     using MacroAssemblerBase::xor32;
 
-#if CPU(ARM64) || CPU(X86_64) || CPU(RISCV64)
+#if CPU(ARM64) || CPU(X86_64) || CPU(RISCV64) || CPU(LOONGARCH64)
     using MacroAssemblerBase::convertInt32ToDouble;
 #endif
-#if CPU(ARM64) || CPU(X86_64) || CPU(RISCV64)
+#if CPU(ARM64) || CPU(X86_64) || CPU(RISCV64) || CPU(LOONGARCH64)
     using MacroAssemblerBase::add64;
     using MacroAssemblerBase::sub64;
     using MacroAssemblerBase::and64;
@@ -347,7 +352,7 @@ public:
     static constexpr ptrdiff_t pushToSaveByteOffset() { return sizeof(void*); }
 #endif // !CPU(ARM64)
 
-#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64)
+#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64) || CPU(LOONGARCH64)
     void peek64(RegisterID dest, int index = 0)
     {
         load64(Address(stackPointerRegister, (index * sizeof(void*))), dest);
@@ -1866,7 +1871,7 @@ public:
         compare64(cond, left, right.asTrustedImm64(), dest);
     }
 
-#if CPU(X86_64)
+#if CPU(X86_64) || CPU(LOONGARCH64)
     void move32ToFloat(Imm32 imm, FPRegisterID dest)
     {
         move(imm, scratchRegister());
@@ -1915,7 +1920,7 @@ public:
         add32(TrustedImm32(address.offset), address.base, dest);
     }
 
-#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64)
+#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64) || CPU(LOONGARCH64)
     void lea64(Address address, RegisterID dest)
     {
         add64(TrustedImm32(address.offset), address.base, dest);
@@ -2157,7 +2162,7 @@ public:
         storePtr(value, addressForPoke(index));
     }
     
-#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64)
+#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64) || CPU(LOONGARCH64)
     void poke(Imm64 value, int index = 0)
     {
         store64(value, addressForPoke(index));
@@ -2173,7 +2178,7 @@ public:
             store64(imm.asTrustedImm64(), dest);
     }
 
-#endif // CPU(X86_64) || CPU(ARM64) || CPU(RISCV64)
+#endif // CPU(X86_64) || CPU(ARM64) || CPU(RISCV64) || CPU(LOONGARCH64)
     
     void store32(Imm32 imm, Address dest)
     {

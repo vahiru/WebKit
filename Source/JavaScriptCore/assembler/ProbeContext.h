@@ -140,6 +140,8 @@ inline void*& CPUState::pc()
     return *reinterpret_cast<void**>(&spr(ARM64Registers::pc));
 #elif CPU(RISCV64)
     return *reinterpret_cast<void**>(&spr(RISCV64Registers::pc));
+#elif CPU(LOONGARCH64)
+    return *reinterpret_cast<void**>(&spr(LOONGARCH64Registers::pc));
 #else
 #error "Unsupported CPU"
 #endif
@@ -153,6 +155,8 @@ inline void*& CPUState::fp()
     return *reinterpret_cast<void**>(&gpr(ARM64Registers::fp));
 #elif CPU(RISCV64)
     return *reinterpret_cast<void**>(&gpr(RISCV64Registers::fp));
+#elif CPU(LOONGARCH64)
+    return *reinterpret_cast<void**>(&gpr(LOONGARCH64Registers::fp));
 #else
 #error "Unsupported CPU"
 #endif
@@ -166,6 +170,8 @@ inline void*& CPUState::sp()
     return *reinterpret_cast<void**>(&gpr(ARM64Registers::sp));
 #elif CPU(RISCV64)
     return *reinterpret_cast<void**>(&gpr(RISCV64Registers::sp));
+#elif CPU(LOONGARCH64)
+    return *reinterpret_cast<void**>(&gpr(LOONGARCH64Registers::sp));
 #else
 #error "Unsupported CPU"
 #endif
