@@ -26,6 +26,8 @@
 
 #include "config.h"
 #include "JSModuleLoader.h"
+
+#include <wtf/Scope.h>
 #include "ProgramExecutable.h"
 
 #include "BuiltinNames.h"
