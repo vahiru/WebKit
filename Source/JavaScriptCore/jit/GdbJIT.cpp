@@ -861,7 +861,7 @@ private:
     {
         ASSERT(!writer->position());
         Writer::Slot<ELFHeader> header = writer->createSlotHere<ELFHeader>();
-#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64)
+#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64) || CPU(LOONGARCH64)
         const uint8_t ident[16] = {
             0x7F, 'E', 'L', 'F', 2, 1, 1, 0,
             0, 0, 0, 0, 0, 0, 0, 0
@@ -882,6 +882,9 @@ private:
 #elif CPU(RISCV64)
         // RISC-V 64
         header->machine = 0xF3;
+#elif CPU(LOONGARCH64)
+        // LoongArch64 (EM_LOONGARCH)
+        header->machine = 0x102;
 #else
 #error Unsupported target architecture.
 #endif
@@ -964,7 +967,7 @@ public:
 
     Binding binding() const { return static_cast<Binding>(m_info >> 4); }
 
-#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64)
+#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64) || CPU(LOONGARCH64)
     struct SerializedLayout {
         SerializedLayout(uint32_t name, uintptr_t value, uintptr_t size, Binding binding, Type type, uint16_t section)
             : m_name(name)
@@ -1134,6 +1137,9 @@ private:
 #elif CPU(ARM64)
         RegisterFP = 29,
         RegisterLR = 30,
+#elif CPU(LOONGARCH64)
+        RegisterFP = 22,
+        RegisterLR = 1,
 #else
         RegisterFP = 7,
         RegisterLR = 14,

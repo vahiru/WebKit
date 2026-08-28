@@ -478,6 +478,10 @@ ALWAYS_INLINE static simde_uint8x16_t loadForClassification(const CharacterType*
 
 #if (CPU(X86_64) && defined(__SSSE3__)) || CPU(ARM64)
 #define URL_PARSER_HAVE_TABLE_LOOKUP_CLASSIFIER 1
+#else
+#define URL_PARSER_HAVE_TABLE_LOOKUP_CLASSIFIER 0
+#endif
+#if URL_PARSER_HAVE_TABLE_LOOKUP_CLASSIFIER
 // Classifies 16 bytes at once with two 16-entry table lookups (pshufb / tbl): a byte is a stop when
 // lowNibbleTable[b & 0xF] & highNibbleTable[b >> 4] is non-zero. High nibbles whose sixteen bytes have the same stop pattern
 // share a bit, so any set with at most eight distinct patterns fits; the patterns come straight from scanClassTable, so the

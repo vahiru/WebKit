@@ -3057,6 +3057,7 @@ void SpeculativeJIT::compileGetByVal(Node* node, const ScopedLambda<std::tuple<J
 
 void SpeculativeJIT::compileRegExpTestInline(Node* node)
 {
+#if ENABLE(YARR_JIT_REGEXP_TEST_INLINE)
     RegExp* regExp = uncheckedDowncast<RegExp>(node->cellOperand2()->value());
 
     auto jitCodeBlock = regExp->getRegExpJITCodeBlock();
@@ -3184,6 +3185,10 @@ void SpeculativeJIT::compileRegExpTestInline(Node* node)
 
     doneCases.link(this);
     unblessedBooleanResult(temp0GPR, node);
+#else
+    UNUSED_PARAM(node);
+    RELEASE_ASSERT_NOT_REACHED();
+#endif
 }
 
 #if USE(LARGE_TYPED_ARRAYS)

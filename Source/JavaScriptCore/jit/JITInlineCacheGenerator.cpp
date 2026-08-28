@@ -26,6 +26,8 @@
 #include "config.h"
 #include "JITInlineCacheGenerator.h"
 
+#include "DFGJITCode.h"
+
 #if ENABLE(JIT)
 
 #include "BaselineJITRegisters.h"

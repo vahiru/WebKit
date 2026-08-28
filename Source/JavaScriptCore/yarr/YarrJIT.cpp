@@ -9110,6 +9110,11 @@ class YarrGenerator final : public YarrJITInfo {
     }
 #endif
 
+#if !(CPU(ARM64) || CPU(X86_64))
+    // The SIMD Boyer-Moore scan above is only implemented for ARM64/X86_64.
+    bool canUseVectorScan() const { return false; }
+#endif
+
     RegisterSet NODELETE calleeSaveRegisters()
     {
         RegisterSet registers;

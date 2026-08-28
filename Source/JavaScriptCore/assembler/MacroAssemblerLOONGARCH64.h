@@ -446,6 +446,45 @@ public:
         m_assembler.sub_dInsn(dest, op1, op2);
     }
 
+    void add64(FPRegisterID op1, FPRegisterID op2, FPRegisterID dest)
+    {
+        // Integer ALU on double bit patterns; this backend has no LSX
+        // scalar-lane integer ops, so bounce through GPRs.
+        auto temp = temps<Data, Memory>();
+        moveDoubleTo64(op1, temp.data());
+        moveDoubleTo64(op2, temp.memory());
+        m_assembler.add_dInsn(temp.data(), temp.data(), temp.memory());
+        move64ToDouble(temp.data(), dest);
+    }
+
+    void sub64(FPRegisterID op1, FPRegisterID op2, FPRegisterID dest)
+    {
+        auto temp = temps<Data, Memory>();
+        moveDoubleTo64(op1, temp.data());
+        moveDoubleTo64(op2, temp.memory());
+        m_assembler.sub_dInsn(temp.data(), temp.data(), temp.memory());
+        move64ToDouble(temp.data(), dest);
+    }
+
+    Jump branchTestBit64(ResultCondition cond, RegisterID testValue, RegisterID bit)
+    {
+        // srl.d uses bit[5:0] of the shift register, giving the modulo-64
+        // semantics callers expect.
+        auto temp = temps<Data>();
+        urshift64(testValue, bit, temp.data());
+        return branchTest64(cond, temp.data(), TrustedImm32(1));
+    }
+
+    void mulHigh64(RegisterID lhs, RegisterID rhs, RegisterID dest)
+    {
+        m_assembler.mulh_dInsn(dest, lhs, rhs);
+    }
+
+    void uMulHigh64(RegisterID lhs, RegisterID rhs, RegisterID dest)
+    {
+        m_assembler.mulh_duInsn(dest, lhs, rhs);
+    }
+
     void sub64(TrustedImm32 imm, RegisterID dest)
     {
         sub64(dest, imm, dest);
@@ -708,7 +747,7 @@ public:
 
     void lshift64(RegisterID src, TrustedImm32 imm, RegisterID dest)
     {
-        if (UNLIKELY(!imm.m_value))
+        if (!imm.m_value) [[unlikely]]
             return move(src, dest);
         m_assembler.slli_dInsn(dest, src, imm.m_value & 0x3f);
     }
@@ -725,6 +764,21 @@ public:
         auto temp = temps<Data>();
         load64(src, temp.data());
         lshift64(temp.data(), shiftAmount, dest);
+    }
+
+    void div32(RegisterID dividend, RegisterID divisor, RegisterID dest)
+    {
+        m_assembler.div_wInsn(dest, dividend, divisor);
+        m_assembler.maskRegister<32>(dest);
+    }
+
+    void multiplySub32(RegisterID mulLeft, RegisterID mulRight, RegisterID minuend, RegisterID dest)
+    {
+        // dest = minuend - (mulLeft * mulRight)
+        auto temp = temps<Data>();
+        m_assembler.mul_wInsn(temp.data(), mulLeft, mulRight);
+        m_assembler.sub_wInsn(dest, minuend, temp.data());
+        m_assembler.maskRegister<32>(dest);
     }
 
     void rshift32(RegisterID shiftAmount, RegisterID dest)
@@ -766,7 +820,7 @@ public:
 
     void rshift64(RegisterID src, TrustedImm32 imm, RegisterID dest)
     {
-        if (UNLIKELY(!imm.m_value))
+        if (!imm.m_value) [[unlikely]]
             return move(src, dest);
         m_assembler.srai_dInsn(dest, src, imm.m_value & 0x3f);
     }
@@ -790,6 +844,20 @@ public:
     void urshift32(RegisterID src, TrustedImm32 imm, RegisterID dest)
     {
         m_assembler.srli_wInsn(dest, src, imm.m_value & 0x1f);
+        m_assembler.maskRegister<32>(dest);
+    }
+
+    void rshift32(TrustedImm32 imm, RegisterID shiftAmount, RegisterID dest)
+    {
+        move(imm, dataTempRegister);
+        m_assembler.sra_wInsn(dest, dataTempRegister, shiftAmount);
+        m_assembler.maskRegister<32>(dest);
+    }
+
+    void urshift32(TrustedImm32 imm, RegisterID shiftAmount, RegisterID dest)
+    {
+        move(imm, dataTempRegister);
+        m_assembler.srl_wInsn(dest, dataTempRegister, shiftAmount);
         m_assembler.maskRegister<32>(dest);
     }
 
@@ -817,7 +885,7 @@ public:
 
     void urshift64(RegisterID src, TrustedImm32 imm, RegisterID dest)
     {
-        if (UNLIKELY(!imm.m_value))
+        if (!imm.m_value) [[unlikely]]
             return move(src, dest);
         m_assembler.srli_dInsn(dest, src, imm.m_value & 0x3f);
     }
@@ -924,6 +992,64 @@ public:
         loadImmediate(TrustedImmPtr(address), temp.memory());
         m_assembler.ld_hInsn(dest, temp.memory(), Imm::I12<0>());
         m_assembler.maskRegister<32>(dest);
+    }
+
+    // ld.b/ld.h/ld.w sign-extend to 64 bits natively.
+    void load8SignedExtendTo64(Address address, RegisterID dest)
+    {
+        auto resolution = resolveAddress(address, lazyTemp<Memory>());
+        m_assembler.ld_bInsn(dest, resolution.base, Imm::I12(resolution.offset));
+    }
+
+    void load8SignedExtendTo64(BaseIndex address, RegisterID dest)
+    {
+        auto resolution = resolveAddress(address, lazyTemp<Memory>());
+        m_assembler.ld_bInsn(dest, resolution.base, Imm::I12(resolution.offset));
+    }
+
+    void load16SignedExtendTo64(Address address, RegisterID dest)
+    {
+        auto resolution = resolveAddress(address, lazyTemp<Memory>());
+        m_assembler.ld_hInsn(dest, resolution.base, Imm::I12(resolution.offset));
+    }
+
+    void load16SignedExtendTo64(BaseIndex address, RegisterID dest)
+    {
+        auto resolution = resolveAddress(address, lazyTemp<Memory>());
+        m_assembler.ld_hInsn(dest, resolution.base, Imm::I12(resolution.offset));
+    }
+
+    void load32SignedExtendTo64(Address address, RegisterID dest)
+    {
+        auto resolution = resolveAddress(address, lazyTemp<Memory>());
+        m_assembler.ld_wInsn(dest, resolution.base, Imm::I12(resolution.offset));
+    }
+
+    void load32SignedExtendTo64(BaseIndex address, RegisterID dest)
+    {
+        auto resolution = resolveAddress(address, lazyTemp<Memory>());
+        m_assembler.ld_wInsn(dest, resolution.base, Imm::I12(resolution.offset));
+    }
+
+    void load8SignedExtendTo64(const void* address, RegisterID dest)
+    {
+        auto temp = temps<Memory>();
+        loadImmediate(TrustedImmPtr(address), temp.memory());
+        m_assembler.ld_bInsn(dest, temp.memory(), Imm::I12<0>());
+    }
+
+    void load16SignedExtendTo64(const void* address, RegisterID dest)
+    {
+        auto temp = temps<Memory>();
+        loadImmediate(TrustedImmPtr(address), temp.memory());
+        m_assembler.ld_hInsn(dest, temp.memory(), Imm::I12<0>());
+    }
+
+    void load32SignedExtendTo64(const void* address, RegisterID dest)
+    {
+        auto temp = temps<Memory>();
+        loadImmediate(TrustedImmPtr(address), temp.memory());
+        m_assembler.ld_wInsn(dest, temp.memory(), Imm::I12<0>());
     }
 
     void load32(Address address, RegisterID dest)
@@ -1226,6 +1352,20 @@ public:
         m_assembler.st_dInsn(immRegister, resolution.base, Imm::I12(resolution.offset));
     }
 
+    void store64(TrustedImm32 imm, BaseIndex address)
+    {
+        auto temp = temps<Data>();
+        RegisterID immRegister = LOONGARCH64Registers::zero;
+        if (!!imm.m_value) {
+            loadImmediate(imm, temp.data());
+            m_assembler.maskRegister<32>(temp.data());
+            immRegister = temp.data();
+        }
+
+        auto resolution = resolveAddress(address, lazyTemp<Memory>());
+        m_assembler.st_dInsn(immRegister, resolution.base, Imm::I12(resolution.offset));
+    }
+
     void store64(TrustedImm64 imm, Address address)
     {
         auto temp = temps<Data, Memory>();
@@ -1310,6 +1450,22 @@ public:
     void transferPtr(BaseIndex src, BaseIndex dest)
     {
         transfer64(src, dest);
+    }
+
+    void transferVector(Address src, Address dest)
+    {
+        if (src == dest)
+            return;
+        transfer64(src, dest);
+        transfer64(src.withOffset(8), dest.withOffset(8));
+    }
+
+    void transferVector(BaseIndex src, BaseIndex dest)
+    {
+        if (src == dest)
+            return;
+        transfer64(src, dest);
+        transfer64(src.withOffset(8), dest.withOffset(8));
     }
 
     void storePair32(RegisterID src1, RegisterID src2, RegisterID dest)
@@ -3445,6 +3601,22 @@ public:
             roundFP<64, LOONGARCH64Assembler::FPRoundingMode::RM>(src, dest);
     }
 
+    void truncFloat(FPRegisterID src, FPRegisterID dest)
+    {
+        if (supportsLSX())
+            m_assembler.vfrintrzInsn<32>(dest, src);
+        else
+            roundFP<32, LOONGARCH64Assembler::FPRoundingMode::RZ>(src, dest);
+    }
+
+    void truncDouble(FPRegisterID src, FPRegisterID dest)
+    {
+        if (supportsLSX())
+            m_assembler.vfrintrzInsn<64>(dest, src);
+        else
+            roundFP<64, LOONGARCH64Assembler::FPRoundingMode::RZ>(src, dest);
+    }
+
     void roundTowardNearestIntFloat(FPRegisterID src, FPRegisterID dest)
     {
         if (supportsLSX())
@@ -3582,6 +3754,13 @@ public:
         auto temp = temps<Data>();
         loadImmediate(imm, temp.data());
         convertInt32ToDouble(temp.data(), dest);
+    }
+
+    void convertUInt32ToDouble(RegisterID src, FPRegisterID dest)
+    {
+        auto temp = temps<Data>();
+        zeroExtend32ToWord(src, temp.data());
+        convertInt64ToDouble(temp.data(), dest);
     }
 
     void convertInt64ToFloat(RegisterID src, FPRegisterID dest)
@@ -4072,6 +4251,18 @@ public:
         m_assembler.addi_dInsn(dest, trueSrc, Imm::I12<0>());
         m_assembler.bInsn(8);
         m_assembler.addi_dInsn(dest, falseSrc, Imm::I12<0>());
+    }
+
+    void moveConditionally32(RelationalCondition cond, RegisterID lhs, TrustedImm32 rhs, TrustedImm32 trueImm, RegisterID falseSrc, RegisterID dest)
+    {
+        // Built from branches: immediate materialization is variable-length,
+        // which does not fit the fixed-offset idiom above.
+        Jump falseCase = branch32(invert(cond), lhs, rhs);
+        loadImmediate(trueImm, dest);
+        Jump done = jump();
+        falseCase.link(this);
+        move(falseSrc, dest);
+        done.link(this);
     }
 
     void moveConditionally64(RelationalCondition cond, RegisterID lhs, RegisterID rhs, RegisterID src, RegisterID dest)

@@ -1418,10 +1418,12 @@ void Options::assertOptionsAreCoherent()
         coherent = false;
         dataLog("INCOHERENT OPTIONS: at least one of useLLInt or useJIT must be true\n");
     }
+#if ENABLE(WEBASSEMBLY)
     if (useWasm() && !(useWasmIPInt() || useBBQJIT())) {
         coherent = false;
         dataLog("INCOHERENT OPTIONS: at least one of useWasmIPInt, or useBBQJIT must be true\n");
     }
+#endif
     if (useProfiler() && useConcurrentJIT()) {
         coherent = false;
         dataLogLn("Bytecode profiler is not concurrent JIT safe.");

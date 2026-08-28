@@ -1580,7 +1580,7 @@ public:
     AssemblerLabel label()
     {
         AssemblerLabel result = m_buffer.label();
-        while (UNLIKELY(static_cast<int>(result.offset()) < m_indexOfTailOfLastWatchpoint)) {
+        while (static_cast<int>(result.offset()) < m_indexOfTailOfLastWatchpoint) {
             nop();
             result = m_buffer.label();
         }
@@ -1652,13 +1652,17 @@ public:
         cacheFlush(location, sizeof(uint32_t) * 2);
     }
 
+    template<RepatchingInfo repatch>
     static void relinkCall(void* from, void* to)
     {
+        // Always flushes; the non-flushing repatch modes are an optimization
+        // this backend does not implement.
         uint32_t* location = reinterpret_cast<uint32_t*>(from);
         LinkCallImpl::apply(location, to);
         cacheFlush(location, sizeof(uint32_t) * 2);
     }
 
+    template<RepatchingInfo repatch>
     static void relinkTailCall(void* from, void* to)
     {
         relinkJump(from, to);
@@ -1704,7 +1708,7 @@ public:
 
     static void replaceWithNops(void* from, size_t memoryToFillWithNopsInBytes)
     {
-        fillNops<MachineCodeCopyMode::Memcpy>(from, memoryToFillWithNopsInBytes);
+        fillNops(from, memoryToFillWithNopsInBytes);
         cacheFlush(from, memoryToFillWithNopsInBytes);
     }
 
@@ -1729,7 +1733,6 @@ public:
         __builtin___clear_cache(reinterpret_cast<char*>(code), reinterpret_cast<char*>(end));
     }
 
-    template<MachineCodeCopyMode copy>
     static void fillNops(void* base, size_t size)
     {
         uint32_t* ptr = reinterpret_cast<uint32_t*>(base);
@@ -1740,7 +1743,7 @@ public:
                                                                 LOONGARCH64Registers::zero,
                                                                 I12Immediate::v<I12Immediate, 0>());
         for (size_t i = 0, n = size / sizeof(uint32_t); i < n; ++i)
-            machineCodeCopy<copy>(&ptr[i], &nop, sizeof(uint32_t));
+            machineCodeCopy<memcpyRepatch>(&ptr[i], &nop, sizeof(uint32_t));
     }
 
     typedef enum {

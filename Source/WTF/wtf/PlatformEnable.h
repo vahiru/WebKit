@@ -729,9 +729,10 @@
 #define ENABLE_WEBASSEMBLY_BBQJIT 0
 #endif
 
+/* LOONGARCH64: Wasm stays a build-time choice (this fork's IPInt dispatch
+   only exists for ARM64/X86_64); when it is enabled, the B3-based OMG tier
+   has no LoongArch backend and BBQ is untested, so pin both off. */
 #if CPU(LOONGARCH64) && ENABLE(JIT)
-#undef ENABLE_WEBASSEMBLY
-#define ENABLE_WEBASSEMBLY 1
 #undef ENABLE_WEBASSEMBLY_OMGJIT
 #define ENABLE_WEBASSEMBLY_OMGJIT 0
 #undef ENABLE_WEBASSEMBLY_BBQJIT
@@ -828,6 +829,11 @@
 #endif
 
 #if CPU(ARM64) && (OS(DARWIN) || OS(LINUX) || OS(FREEBSD))
+#define ENABLE_DFG_JIT 1
+#endif
+
+/* The LoongArch64 port (rebased from loongson/WebKit) targets LLInt + Baseline + DFG. */
+#if CPU(LOONGARCH64) && OS(LINUX)
 #define ENABLE_DFG_JIT 1
 #endif
 

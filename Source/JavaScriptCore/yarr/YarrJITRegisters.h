@@ -156,6 +156,7 @@ public:
     static constexpr GPRReg regT0 = LOONGARCH64Registers::r10;
     static constexpr GPRReg regT1 = LOONGARCH64Registers::r11;
     static constexpr GPRReg regT2 = LOONGARCH64Registers::r12;
+    static constexpr GPRReg regT3 = LOONGARCH64Registers::r15;
     static constexpr GPRReg remainingMatchCount = LOONGARCH64Registers::r13;
     static constexpr GPRReg regUnicodeInputAndTrail = LOONGARCH64Registers::r14;
     static constexpr GPRReg unicodeAndSubpatternIdTemp = LOONGARCH64Registers::r9;
